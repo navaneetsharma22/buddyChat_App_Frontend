@@ -1,30 +1,19 @@
-import { useState } from 'react'
-import { Button, ButtonGroup } from "@chakra-ui/react"
-import {  Route } from "react-router-dom";
-
-
-import './App.css'
-
-
+import { Routes, Route } from "react-router-dom";
+import Homepage from "./pages/Homepage";
+import ChatPage from "./pages/ChatPage";
+import "./App.css";
 
 function App() {
-  console.log()
-  
-
   return (
-    <div>
-    <p>Hello</p>
-    <Button colorScheme='blue'>Button</Button>
-
+    <div className="App">
+     
+ 
+      <Routes>
+        <Route path="/" element={<Homepage />} exact/>
+        <Route path="/chats" element={<ChatPage />} />
+      </Routes>
     </div>
-
-
-
-
-    
-   
-   
-  )
+  );
 }
 
-export default App
+export default App;
