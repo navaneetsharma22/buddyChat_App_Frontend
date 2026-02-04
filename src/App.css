@@ -1,12 +1,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&display=swap');
 
-.App{
-    min-height: 100vh;
-    display: flex;
-    background-image:url("./background.png");
-    background-position: center;
-    background-size: cover;
-    color:black;
+.App {
+  min-height: 100vh;
+  display: flex;
 
+  /* Sky blue with transparency */
+  background-color: rgba(135, 206, 235, 0.35);
 
+  background-position: center;
+  background-size: cover;
+  color: black;
 }
