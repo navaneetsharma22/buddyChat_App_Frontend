@@ -18,6 +18,7 @@ import {
   DrawerBody,
   useDisclosure,
   useToast,
+  Badge,
 } from "@chakra-ui/react";
 
 import { BellIcon, ChevronDownIcon } from "@chakra-ui/icons";
@@ -27,8 +28,6 @@ import axios from "axios";
 
 import ChatLoading from "../ChatLoading";
 import ProfileModal from "./ProfileModal";
-import NotificationBadge from "react-notification-badge";
-import { Effect } from "react-notification-badge";
 import { getSender } from "../../config/ChatLogics";
 import UserListItem from "../userAvatar/UserListItem";
 import { ChatState } from "../../Context/ChatProvider";
@@ -152,11 +151,20 @@ function SideDrawer() {
 
         <Box display="flex" alignItems="center" gap={2}>
           <Menu>
-            <MenuButton p={1}>
-              <NotificationBadge
-                count={notification.length}
-                effect={Effect.SCALE}
-              />
+            <MenuButton p={1} position="relative">
+              {notification.length > 0 && (
+                <Badge
+                  colorScheme="red"
+                  borderRadius="full"
+                  position="absolute"
+                  top="0"
+                  right="0"
+                  fontSize="0.8em"
+                  px={2}
+                >
+                  {notification.length}
+                </Badge>
+              )}
               <BellIcon fontSize="2xl" m={1} />
             </MenuButton>
 
@@ -181,7 +189,12 @@ function SideDrawer() {
 
           <Menu>
             <MenuButton as={Button} bg="white" rightIcon={<ChevronDownIcon />}>
-              <Avatar size="sm" cursor="pointer" name={user.name} src={user.pic} />
+              <Avatar
+                size="sm"
+                cursor="pointer"
+                name={user.name}
+                src={user.pic}
+              />
             </MenuButton>
 
             <MenuList>
@@ -200,9 +213,7 @@ function SideDrawer() {
       <Drawer placement="left" onClose={onClose} isOpen={isOpen}>
         <DrawerOverlay />
         <DrawerContent>
-          <DrawerHeader borderBottomWidth="1px">
-            Search Users
-          </DrawerHeader>
+          <DrawerHeader borderBottomWidth="1px">Search Users</DrawerHeader>
 
           <DrawerBody>
             <Box display="flex" pb={2}>
