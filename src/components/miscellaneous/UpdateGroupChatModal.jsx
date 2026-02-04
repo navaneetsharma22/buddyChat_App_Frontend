@@ -50,7 +50,7 @@ const UpdateGroupChatModal = ({ fetchMessages, fetchAgain, setFetchAgain }) => {
         },
       };
 
-      const { data } = await axios.get(
+      const { data } = await API.get(
         `/api/user?search=${query}`,
         config
       );
@@ -82,7 +82,7 @@ const UpdateGroupChatModal = ({ fetchMessages, fetchAgain, setFetchAgain }) => {
         },
       };
 
-      const { data } = await axios.put(
+      const { data } = await API.put(
         `/api/chat/rename`,
         {
           chatId: selectedChat._id,
@@ -140,7 +140,7 @@ const UpdateGroupChatModal = ({ fetchMessages, fetchAgain, setFetchAgain }) => {
         },
       };
 
-      const { data } = await axios.put(
+      const { data } = await API.put(
         `/api/chat/groupadd`,
         {
           chatId: selectedChat._id,
@@ -189,7 +189,7 @@ const UpdateGroupChatModal = ({ fetchMessages, fetchAgain, setFetchAgain }) => {
         },
       };
 
-      const { data } = await axios.put(
+      const { data } = await API.put(
         `/api/chat/groupremove`,
         {
           chatId: selectedChat._id,
