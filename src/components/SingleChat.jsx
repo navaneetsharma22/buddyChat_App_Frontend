@@ -18,17 +18,17 @@ import {
 } from "@chakra-ui/react";
 import { ArrowBackIcon, DeleteIcon } from "@chakra-ui/icons";
 import { useEffect, useRef, useState } from "react";
-import axios from "axios";
 import io from "socket.io-client";
 import EmojiPicker from "emoji-picker-react";
 
+import api from "../api/axios"; // ✅ IMPORTANT
 import { getSender, getSenderFull } from "../config/ChatLogics";
 import ProfileModal from "./miscellaneous/ProfileModal";
 import ScrollableChat from "./ScrollableChat";
 import UpdateGroupChatModal from "./miscellaneous/UpdateGroupChatModal";
 import { ChatState } from "../Context/ChatProvider";
 
-const ENDPOINT = "http://localhost:5000";
+const ENDPOINT = import.meta.env.VITE_API_BASE_URL; // ✅ FIX
 let socket;
 
 const SingleChat = ({ fetchAgain, setFetchAgain }) => {
@@ -36,7 +36,6 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   const [loading, setLoading] = useState(false);
   const [newMessage, setNewMessage] = useState("");
   const [showEmoji, setShowEmoji] = useState(false);
-
   const [typing, setTyping] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
 
@@ -55,7 +54,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   const chatBg = useColorModeValue("gray.100", "gray.900");
   const inputBg = useColorModeValue("gray.200", "gray.700");
 
-  // ================= SOCKET CONNECT ONCE =================
+  // ================= SOCKET CONNECT =================
   useEffect(() => {
     socket = io(ENDPOINT);
     socket.emit("setup", user);
@@ -64,7 +63,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     socket.on("stop typing", () => setIsTyping(false));
 
     return () => socket.disconnect();
-  }, []);
+  }, [user]);
 
   // ================= FETCH MESSAGES =================
   const fetchMessages = async () => {
@@ -73,10 +72,9 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     try {
       setLoading(true);
 
-      const { data } = await axios.get(
-        `/api/message/${selectedChat._id}`,
-        { headers: { Authorization: `Bearer ${user.token}` } }
-      );
+      const { data } = await api.get(`/api/message/${selectedChat._id}`, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
 
       setMessages(data);
       socket.emit("join chat", selectedChat._id);
@@ -108,24 +106,24 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     return () => socket.off("message recieved");
   }, [selectedChat, notification]);
 
-  // ================= SEND =================
-  const sendMessage = async (e) => {
-    if (e.key === "Enter" && newMessage.trim()) {
-      socket.emit("stop typing", selectedChat._id);
+  // ================= SEND MESSAGE =================
+  const sendMessage = async () => {
+    if (!newMessage.trim()) return;
 
-      try {
-        const { data } = await axios.post(
-          "/api/message",
-          { content: newMessage, chatId: selectedChat._id },
-          { headers: { Authorization: `Bearer ${user.token}` } }
-        );
+    socket.emit("stop typing", selectedChat._id);
 
-        setNewMessage("");
-        socket.emit("new message", data);
-        setMessages((prev) => [...prev, data]);
-      } catch {
-        toast({ title: "Message failed", status: "error" });
-      }
+    try {
+      const { data } = await api.post(
+        "/api/message",
+        { content: newMessage, chatId: selectedChat._id },
+        { headers: { Authorization: `Bearer ${user.token}` } }
+      );
+
+      setNewMessage("");
+      socket.emit("new message", data);
+      setMessages((prev) => [...prev, data]);
+    } catch {
+      toast({ title: "Message failed", status: "error" });
     }
   };
 
@@ -139,7 +137,6 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     }
 
     const lastTime = new Date().getTime();
-
     setTimeout(() => {
       if (new Date().getTime() - lastTime >= 3000 && typing) {
         socket.emit("stop typing", selectedChat._id);
@@ -148,10 +145,10 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     }, 3000);
   };
 
-  // ================= DELETE =================
+  // ================= DELETE CHAT =================
   const deleteChat = async () => {
     try {
-      await axios.delete(`/api/chat/${selectedChat._id}`, {
+      await api.delete(`/api/chat/${selectedChat._id}`, {
         headers: { Authorization: `Bearer ${user.token}` },
       });
 
@@ -164,18 +161,10 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     }
   };
 
+  // ================= UI =================
   return selectedChat ? (
     <>
-      {/* HEADER */}
-      <Text
-        fontSize="xl"
-        pb={3}
-        px={2}
-        w="100%"
-        display="flex"
-        justifyContent="space-between"
-        alignItems="center"
-      >
+      <Text fontSize="xl" pb={3} px={2} display="flex" justifyContent="space-between">
         <IconButton
           display={{ base: "flex", md: "none" }}
           icon={<ArrowBackIcon />}
@@ -198,113 +187,45 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
           </>
         )}
 
-        <IconButton
-          icon={<DeleteIcon />}
-          colorScheme="red"
-          size="sm"
-          onClick={onOpen}
-        />
+        <IconButton icon={<DeleteIcon />} colorScheme="red" size="sm" onClick={onOpen} />
       </Text>
 
-      {/* BODY */}
-      <Box
-        flex="1"
-        display="flex"
-        flexDir="column"
-        bg={chatBg}
-        p={3}
-        borderRadius="lg"
-        overflow="hidden"
-      >
+      <Box flex="1" display="flex" flexDir="column" bg={chatBg} p={3}>
         <Box flex="1" overflowY="auto">
-          {loading ? <Spinner size="xl" /> : <ScrollableChat messages={messages} />}
-
-          {isTyping && (
-            <Text fontSize="sm" color="gray.500" mt={2}>
-              Typing...
-            </Text>
-          )}
+          {loading ? <Spinner /> : <ScrollableChat messages={messages} />}
+          {isTyping && <Text fontSize="sm">Typing...</Text>}
         </Box>
 
-        {showEmoji && (
-          <Box position="absolute" bottom="70px" left="15px" zIndex="1000">
-            <EmojiPicker
-              onEmojiClick={(e) =>
-                setNewMessage((prev) => prev + e.emoji)
-              }
-            />
-          </Box>
-        )}
-
-        {/* <FormControl onKeyDown={sendMessage} mt={2}>
+        <FormControl mt={2}>
           <Box display="flex" gap={2}>
-            <IconButton
-              icon={<span style={{ fontSize: 22 }}>😄</span>}
-              variant="ghost"
-              onClick={() => setShowEmoji((p) => !p)}
-            />
-
+            <IconButton icon={<span>😄</span>} onClick={() => setShowEmoji((p) => !p)} />
             <Input
               bg={inputBg}
-              placeholder="Enter a message..."
               value={newMessage}
               onChange={typingHandler}
+              onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+              placeholder="Enter a message..."
             />
+            <IconButton icon={<span>➤</span>} onClick={sendMessage} />
           </Box>
-        </FormControl> */}
-        <FormControl mt={2}>
-  <Box display="flex" gap={2} alignItems="center">
-
-    {/* Emoji button */}
-    <IconButton
-      icon={<span style={{ fontSize: 22 }}>😄</span>}
-      variant="ghost"
-      onClick={() => setShowEmoji((p) => !p)}
-    />
-
-    {/* Input */}
-    <Input
-      bg={inputBg}
-      placeholder="Enter a message..."
-      value={newMessage}
-      onChange={typingHandler}
-      onKeyDown={(e) => e.key === "Enter" && sendMessage(e)}
-    />
-
-    {/* Send button */}
-    <IconButton
-      colorScheme="blue"
-      icon={<span style={{ fontSize: "18px" }}>➤</span>}
-      onClick={() =>
-        sendMessage({ key: "Enter" })
-      }
-    />
-
-  </Box>
-</FormControl>
-
+        </FormControl>
       </Box>
 
-      {/* DELETE DIALOG */}
       <AlertDialog isOpen={isOpen} leastDestructiveRef={cancelRef} onClose={onClose}>
         <AlertDialogOverlay>
           <AlertDialogContent>
             <AlertDialogHeader>Delete Chat?</AlertDialogHeader>
-            <AlertDialogBody>
-              This will permanently delete the conversation.
-            </AlertDialogBody>
+            <AlertDialogBody>This will permanently delete the conversation.</AlertDialogBody>
             <AlertDialogFooter>
               <Button ref={cancelRef} onClick={onClose}>Cancel</Button>
-              <Button colorScheme="red" ml={3} onClick={deleteChat}>
-                Delete
-              </Button>
+              <Button colorScheme="red" ml={3} onClick={deleteChat}>Delete</Button>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialogOverlay>
       </AlertDialog>
     </>
   ) : (
-    <Box display="flex" alignItems="center" justifyContent="center" h="100%">
+    <Box h="100%" display="flex" justifyContent="center" alignItems="center">
       <Text fontSize="2xl">Click a user to start chatting 💬</Text>
     </Box>
   );

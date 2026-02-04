@@ -24,8 +24,8 @@ import {
 import { BellIcon, ChevronDownIcon } from "@chakra-ui/icons";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import axios from "axios";
 
+import api from "../../api/axios"; // ✅ IMPORTANT
 import ChatLoading from "../ChatLoading";
 import ProfileModal from "./ProfileModal";
 import { getSender } from "../../config/ChatLogics";
@@ -71,17 +71,12 @@ function SideDrawer() {
     try {
       setLoading(true);
 
-      const config = {
-        headers: {
-          Authorization: `Bearer ${user.token}`,
-        },
-      };
-
-      const { data } = await axios.get(`/api/user?search=${search}`, config);
+      const { data } = await api.get(`/api/user?search=${search}`, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
 
       setSearchResult(data);
-      setLoading(false);
-    } catch (error) {
+    } catch {
       toast({
         title: "Error occurred",
         description: "Failed to load search results",
@@ -90,6 +85,8 @@ function SideDrawer() {
         isClosable: true,
         position: "bottom-left",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -97,21 +94,22 @@ function SideDrawer() {
     try {
       setLoadingChat(true);
 
-      const config = {
-        headers: {
-          "Content-type": "application/json",
-          Authorization: `Bearer ${user.token}`,
-        },
-      };
-
-      const { data } = await axios.post(`/api/chat`, { userId }, config);
+      const { data } = await api.post(
+        "/api/chat",
+        { userId },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${user.token}`,
+          },
+        }
+      );
 
       if (!chats.find((c) => c._id === data._id)) {
         setChats([data, ...chats]);
       }
 
       setSelectedChat(data);
-      setLoadingChat(false);
       onClose();
     } catch (error) {
       toast({
@@ -122,6 +120,8 @@ function SideDrawer() {
         isClosable: true,
         position: "bottom-left",
       });
+    } finally {
+      setLoadingChat(false);
     }
   };
 
@@ -201,9 +201,7 @@ function SideDrawer() {
               <ProfileModal user={user}>
                 <MenuItem>My Profile</MenuItem>
               </ProfileModal>
-
               <MenuDivider />
-
               <MenuItem onClick={logoutHandler}>Logout</MenuItem>
             </MenuList>
           </Menu>
@@ -213,7 +211,9 @@ function SideDrawer() {
       <Drawer placement="left" onClose={onClose} isOpen={isOpen}>
         <DrawerOverlay />
         <DrawerContent>
-          <DrawerHeader borderBottomWidth="1px">Search Users</DrawerHeader>
+          <DrawerHeader borderBottomWidth="1px">
+            Search Users
+          </DrawerHeader>
 
           <DrawerBody>
             <Box display="flex" pb={2}>
@@ -229,11 +229,11 @@ function SideDrawer() {
             {loading ? (
               <ChatLoading />
             ) : (
-              searchResult.map((user) => (
+              searchResult.map((u) => (
                 <UserListItem
-                  key={user._id}
-                  user={user}
-                  handleFunction={() => accessChat(user._id)}
+                  key={u._id}
+                  user={u}
+                  handleFunction={() => accessChat(u._id)}
                 />
               ))
             )}

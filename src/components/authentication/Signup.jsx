@@ -6,11 +6,11 @@ import {
   InputGroup,
   InputRightElement,
   VStack,
+  useToast,
 } from "@chakra-ui/react";
 import React, { useState } from "react";
-import { useToast } from "@chakra-ui/react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import api from "../../api/axios"; // ✅ IMPORTANT
 
 function Signup() {
   const [show, setShow] = useState(false);
@@ -23,8 +23,6 @@ function Signup() {
 
   const toast = useToast();
   const navigate = useNavigate();
-
-  const handleClick = () => setShow(!show);
 
   const postDetails = (pics) => {
     setLoading(true);
@@ -70,8 +68,6 @@ function Signup() {
   };
 
   const submitHandler = async () => {
-    setLoading(true);
-
     if (!name || !email || !password || !confirmPassword) {
       toast({
         title: "Please fill all fields",
@@ -80,7 +76,6 @@ function Signup() {
         isClosable: true,
         position: "bottom",
       });
-      setLoading(false);
       return;
     }
 
@@ -92,19 +87,16 @@ function Signup() {
         isClosable: true,
         position: "bottom",
       });
-      setLoading(false);
       return;
     }
 
     try {
-      const config = {
-        headers: { "Content-Type": "application/json" },
-      };
+      setLoading(true);
 
-      const { data } = await axios.post(
+      const { data } = await api.post(
         "/api/user",
         { name, email, password, pic },
-        config
+        { headers: { "Content-Type": "application/json" } }
       );
 
       toast({
@@ -116,9 +108,7 @@ function Signup() {
       });
 
       localStorage.setItem("userInfo", JSON.stringify(data));
-      setLoading(false);
       navigate("/chats");
-
     } catch (error) {
       toast({
         title: "Error occurred",
@@ -128,6 +118,7 @@ function Signup() {
         isClosable: true,
         position: "bottom",
       });
+    } finally {
       setLoading(false);
     }
   };
@@ -152,7 +143,7 @@ function Signup() {
             onChange={(e) => setPassword(e.target.value)}
           />
           <InputRightElement width="4.5rem">
-            <Button size="sm" onClick={handleClick}>
+            <Button size="sm" onClick={() => setShow(!show)}>
               {show ? "Hide" : "Show"}
             </Button>
           </InputRightElement>
