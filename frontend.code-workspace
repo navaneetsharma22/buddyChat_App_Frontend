@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"name": "buddyChat_Application",
+			"path": ".."
+		}
+	],
+	"settings": {}
+}

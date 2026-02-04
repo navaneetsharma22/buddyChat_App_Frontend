@@ -1,31 +1,37 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
+import { Box, useColorModeValue } from "@chakra-ui/react";
+import { useState } from "react";
+import Chatbox from "../components/Chatbox";
+import MyChats from "../components/MyChats";
+import SideDrawer from "../components/miscellaneous/SideDrawer";
+import { ChatState } from "../Context/ChatProvider";
 
-function ChatPage() {
-  const [chats, setChats] = useState([]);
+const Chatpage = () => {
+  const [fetchAgain, setFetchAgain] = useState(false);
+  const { user } = ChatState();
 
-  const fetchChats = async () => {
-    try {
-      const response = await axios.get("/api/chat"); // fixed endpoint
-      console.log("checking data");
-      console.log(response.data);
-      setChats(response.data);
-    } catch (error) {
-      console.error("Failed to fetch chats:", error);
-    }
-  };
-
-  useEffect(() => {
-    fetchChats();
-  }, []);
+  const bg = useColorModeValue("gray.100", "gray.900");
 
   return (
-    <div>
-      {chats.map((chat) => (
-        <div key={chat._id}>{chat.chatName}</div> // fixed naming
-      ))}
-    </div>
-  );
-}
+    <Box w="100%" h="100vh" bg={bg} display="flex" flexDir="column">
+      {user && <SideDrawer />}
 
-export default ChatPage;
+      <Box
+        flex="1"
+        display="flex"
+        p="10px"
+        gap="10px"
+        overflow="hidden"
+      >
+        {user && <MyChats fetchAgain={fetchAgain} />}
+        {user && (
+          <Chatbox
+            fetchAgain={fetchAgain}
+            setFetchAgain={setFetchAgain}
+          />
+        )}
+      </Box>
+    </Box>
+  );
+};
+
+export default Chatpage;
