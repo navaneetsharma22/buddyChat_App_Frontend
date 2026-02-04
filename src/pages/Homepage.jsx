@@ -13,7 +13,7 @@ import { useNavigate } from "react-router-dom";
 import Login from "../components/authentication/Login";
 import Signup from "../components/authentication/Signup";
 
-function Homepage() {
+function HomePage() {
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -74,4 +74,4 @@ function Homepage() {
   );
 }
 
-export default Homepage;
+export default HomePage;
