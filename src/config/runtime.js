@@ -3,9 +3,18 @@ const localDevHost = isBrowser
   ? ["localhost", "127.0.0.1"].includes(window.location.hostname)
   : false;
 
-export const API_BASE_URL =
+const DEFAULT_LOCAL_API_BASE_URL = "http://127.0.0.1:5000";
+const DEFAULT_PRODUCTION_API_BASE_URL =
+  "https://buddychat-app-backend.onrender.com";
+
+const normalizeBaseUrl = (value = "") => value.replace(/\/+$/, "");
+
+export const API_BASE_URL = normalizeBaseUrl(
   import.meta.env.VITE_API_BASE_URL ||
-  (localDevHost ? "http://127.0.0.1:5000" : "");
+    (localDevHost
+      ? DEFAULT_LOCAL_API_BASE_URL
+      : DEFAULT_PRODUCTION_API_BASE_URL)
+);
 
 export const getAssetUrl = (path = "") => {
   if (!path) return "";

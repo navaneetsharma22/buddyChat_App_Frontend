@@ -118,9 +118,19 @@ function Signup() {
       setUser(data);
       navigate("/chats");
     } catch (error) {
+      const description =
+        error?.response?.data?.message ||
+        (error?.request
+          ? "Cannot reach the server. Ensure the backend is running and CORS allows this origin."
+          : error?.message) ||
+        "Something went wrong";
+
+      // eslint-disable-next-line no-console
+      console.error("Signup failed:", error);
+
       toast({
         title: "Error occurred",
-        description: error.response?.data?.message || "Something went wrong",
+        description,
         status: "error",
         duration: 5000,
         isClosable: true,

@@ -6,7 +6,7 @@ export default defineConfig({
 
   server: {
     proxy: {
-      "/api": "https://buddychat-app-backend.onrender.com",
+      "/api": "http://127.0.0.1:5000",
     },
   },
 

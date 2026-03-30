@@ -63,9 +63,21 @@ function Login() {
       setUser(data);
       navigate("/chats");
     } catch (error) {
+      // Axios network errors (CORS, backend down, DNS, etc.) won't have `error.response`.
+      const description =
+        error?.response?.data?.message ||
+        (error?.request
+          ? "Cannot reach the server. Ensure the backend is running and CORS allows this origin."
+          : error?.message) ||
+        "Login failed";
+
+      // Helpful during local debugging.
+      // eslint-disable-next-line no-console
+      console.error("Login failed:", error);
+
       toast({
         title: "Error occurred!",
-        description: error.response?.data?.message || "Login failed",
+        description,
         status: "error",
         duration: 5000,
         isClosable: true,
