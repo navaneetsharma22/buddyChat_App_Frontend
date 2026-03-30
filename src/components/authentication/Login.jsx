@@ -11,11 +11,13 @@ import {
   useColorModeValue,
 } from "@chakra-ui/react";
 import { useNavigate } from "react-router-dom";
-import api from "../../api/axios"; // ✅ IMPORTANT
+import api from "../../api/axios";
+import { ChatState } from "../../Context/ChatProvider";
 
 function Login() {
   const toast = useToast();
   const navigate = useNavigate();
+  const { setUser } = ChatState();
   const labelColor = useColorModeValue("midnight.700", "whiteAlpha.900");
   const ghostButtonBg = useColorModeValue("rgba(9,17,31,0.08)", "whiteAlpha.200");
   const ghostButtonHover = useColorModeValue("rgba(9,17,31,0.14)", "whiteAlpha.300");
@@ -58,6 +60,7 @@ function Login() {
       });
 
       localStorage.setItem("userInfo", JSON.stringify(data));
+      setUser(data);
       navigate("/chats");
     } catch (error) {
       toast({

@@ -50,3 +50,20 @@ export const getSenderFull = (loggedUser, users) => {
 
   return users[0]?._id === loggedUser?._id ? users[1] : users[0];
 };
+
+export const getMessageStatus = (message, currentUserId) => {
+  if (!message || message.sender?._id !== currentUserId) {
+    return "";
+  }
+
+  const readCount = (message.readBy || []).filter(
+    (user) => user?._id !== currentUserId
+  ).length;
+  const deliveredCount = (message.deliveredTo || []).filter(
+    (user) => user?._id !== currentUserId
+  ).length;
+
+  if (readCount > 0) return "Seen";
+  if (deliveredCount > 0) return "Delivered";
+  return "Sent";
+};

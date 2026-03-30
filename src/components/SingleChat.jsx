@@ -15,24 +15,29 @@ import {
   AlertDialogOverlay,
   Button,
   useDisclosure,
-  Avatar,
   HStack,
   VStack,
+  InputGroup,
+  InputLeftElement,
+  Badge,
+  Divider,
+  CloseButton,
 } from "@chakra-ui/react";
-import { ArrowBackIcon } from "@chakra-ui/icons";
-import { useEffect, useRef, useState } from "react";
-import { FiSend, FiSmile, FiTrash2 } from "react-icons/fi";
+import { ArrowBackIcon, SearchIcon, SmallCloseIcon } from "@chakra-ui/icons";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FiEdit2, FiPaperclip, FiSend, FiSmile, FiTrash2 } from "react-icons/fi";
 import io from "socket.io-client";
 import EmojiPicker from "emoji-picker-react";
-
 import api from "../api/axios";
+import { API_BASE_URL } from "../config/runtime";
 import { getSender, getSenderFull } from "../config/ChatLogics";
 import ProfileModal from "./miscellaneous/ProfileModal";
 import ScrollableChat from "./ScrollableChat";
 import UpdateGroupChatModal from "./miscellaneous/UpdateGroupChatModal";
 import { ChatState } from "../Context/ChatProvider";
+import OnlineAvatar from "./OnlineAvatar";
 
-const ENDPOINT = import.meta.env.VITE_API_BASE_URL;
+const ENDPOINT = API_BASE_URL;
 let socketInstance = null;
 
 const SingleChat = ({ fetchAgain, setFetchAgain }) => {
@@ -42,6 +47,11 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   const [showEmoji, setShowEmoji] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [editingMessage, setEditingMessage] = useState(null);
+  const [messageSearch, setMessageSearch] = useState("");
+  const [pendingAttachments, setPendingAttachments] = useState([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
 
   const toast = useToast();
   const cancelRef = useRef();
@@ -49,6 +59,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   const socketRef = useRef(null);
   const selectedChatRef = useRef(null);
   const notificationIdsRef = useRef(new Set());
+  const fileInputRef = useRef(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   const {
@@ -57,37 +68,21 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     user,
     notification,
     setNotification,
+    onlineUsers,
+    setOnlineUsers,
   } = ChatState();
 
-  const chatBg = useColorModeValue(
-    "rgba(9,17,31,0.02)",
-    "rgba(255,255,255,0.03)"
-  );
-  const composerBg = useColorModeValue(
-    "rgba(9,17,31,0.03)",
-    "rgba(255,255,255,0.04)"
-  );
+  const chatBg = useColorModeValue("rgba(9,17,31,0.02)", "rgba(255,255,255,0.03)");
+  const composerBg = useColorModeValue("rgba(9,17,31,0.03)", "rgba(255,255,255,0.04)");
   const inputBg = useColorModeValue("rgba(9,17,31,0.04)", "whiteAlpha.120");
-  const borderColor = useColorModeValue(
-    "rgba(9,17,31,0.08)",
-    "rgba(255,255,255,0.08)"
-  );
-  const headerBg = useColorModeValue(
-    "rgba(9,17,31,0.02)",
-    "rgba(255,255,255,0.03)"
-  );
+  const borderColor = useColorModeValue("rgba(9,17,31,0.08)", "rgba(255,255,255,0.08)");
+  const headerBg = useColorModeValue("rgba(9,17,31,0.02)", "rgba(255,255,255,0.03)");
   const headingColor = useColorModeValue("midnight.900", "white");
   const subText = useColorModeValue("midnight.600", "whiteAlpha.700");
   const softBg = useColorModeValue("rgba(9,17,31,0.05)", "whiteAlpha.120");
   const softHover = useColorModeValue("rgba(9,17,31,0.10)", "whiteAlpha.200");
-  const emptyBg = useColorModeValue(
-    "rgba(9,17,31,0.03)",
-    "rgba(255,255,255,0.04)"
-  );
-  const outlineBorder = useColorModeValue(
-    "rgba(9,17,31,0.16)",
-    "whiteAlpha.300"
-  );
+  const emptyBg = useColorModeValue("rgba(9,17,31,0.03)", "rgba(255,255,255,0.04)");
+  const outlineBorder = useColorModeValue("rgba(9,17,31,0.16)", "whiteAlpha.300");
 
   useEffect(() => {
     selectedChatRef.current = selectedChat;
@@ -96,6 +91,59 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   useEffect(() => {
     notificationIdsRef.current = new Set(notification.map((item) => item._id));
   }, [notification]);
+
+  const replaceMessageById = (message) => {
+    setMessages((prev) =>
+      prev.map((item) => (item._id === message._id ? message : item))
+    );
+  };
+
+  const markChatSeen = useCallback(async (chatId) => {
+    if (!chatId || !user?.token) return;
+
+    try {
+      const { data } = await api.post(
+        `/api/message/seen/${chatId}`,
+        {},
+        { headers: { Authorization: `Bearer ${user.token}` } }
+      );
+
+      setMessages((prev) =>
+        prev.map((message) => {
+          const updatedMessage = data.find((item) => item._id === message._id);
+          return updatedMessage || message;
+        })
+      );
+
+      socketRef.current?.emit("messages seen", { chatId, userId: user._id });
+      setNotification((prev) => prev.filter((item) => item.chat?._id !== chatId));
+    } catch {
+      // Keep this silent to avoid noisy UX during polling-like updates.
+    }
+  }, [setNotification, user]);
+
+  const fetchMessages = useCallback(async (chatOverride) => {
+    const activeChat = chatOverride || selectedChatRef.current;
+    if (!activeChat?._id || !user?.token) return;
+
+    try {
+      setLoading(true);
+
+      const { data } = await api.get(`/api/message/${activeChat._id}`, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+
+      if (selectedChatRef.current?._id === activeChat._id) {
+        setMessages(data);
+      }
+
+      await markChatSeen(activeChat._id);
+    } catch {
+      toast({ title: "Failed to load messages", status: "error" });
+    } finally {
+      setLoading(false);
+    }
+  }, [markChatSeen, toast, user?.token]);
 
   useEffect(() => {
     if (!user?._id) return;
@@ -114,6 +162,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
 
     const handleTyping = () => setIsTyping(true);
     const handleStopTyping = () => setIsTyping(false);
+    const handleOnlineUsers = (users) => setOnlineUsers(users);
     const handleIncomingMessage = (msg) => {
       const activeChat = selectedChatRef.current;
 
@@ -134,6 +183,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
 
           return [...withoutTemp, msg];
         });
+        markChatSeen(msg.chat?._id);
         return;
       }
 
@@ -142,52 +192,64 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
       notificationIdsRef.current.add(msg._id);
       setNotification((prev) => [msg, ...prev]);
       setFetchAgain((prev) => !prev);
+
+      if ("Notification" in window) {
+        if (Notification.permission === "default") {
+          Notification.requestPermission();
+        } else if (Notification.permission === "granted") {
+          new Notification(
+            msg.chat?.isGroupChat ? msg.chat.chatName : msg.sender?.name || "New message",
+            {
+              body: msg.content || "Sent an attachment",
+            }
+          );
+        }
+      }
+    };
+    const handleMessageUpdated = (msg) => replaceMessageById(msg);
+    const handleMessageDeleted = (msg) => replaceMessageById(msg);
+    const handleMessagesSeen = ({ chatId }) => {
+      if (selectedChatRef.current?._id === chatId) {
+        fetchMessages(selectedChatRef.current);
+      }
     };
 
     socketInstance.off("typing", handleTyping);
     socketInstance.off("stop typing", handleStopTyping);
     socketInstance.off("message recieved", handleIncomingMessage);
+    socketInstance.off("message updated", handleMessageUpdated);
+    socketInstance.off("message deleted", handleMessageDeleted);
+    socketInstance.off("messages seen", handleMessagesSeen);
+    socketInstance.off("online users", handleOnlineUsers);
 
     socketInstance.on("typing", handleTyping);
     socketInstance.on("stop typing", handleStopTyping);
     socketInstance.on("message recieved", handleIncomingMessage);
+    socketInstance.on("message updated", handleMessageUpdated);
+    socketInstance.on("message deleted", handleMessageDeleted);
+    socketInstance.on("messages seen", handleMessagesSeen);
+    socketInstance.on("online users", handleOnlineUsers);
 
     return () => {
       socketInstance.off("typing", handleTyping);
       socketInstance.off("stop typing", handleStopTyping);
       socketInstance.off("message recieved", handleIncomingMessage);
+      socketInstance.off("message updated", handleMessageUpdated);
+      socketInstance.off("message deleted", handleMessageDeleted);
+      socketInstance.off("messages seen", handleMessagesSeen);
+      socketInstance.off("online users", handleOnlineUsers);
     };
-  }, [user, setFetchAgain, setNotification]);
+  }, [fetchMessages, markChatSeen, setFetchAgain, setNotification, setOnlineUsers, user]);
 
   useEffect(() => {
     if (!selectedChat?._id || !socketRef.current) return;
     socketRef.current.emit("join chat", selectedChat._id);
-  }, [selectedChat]);
-
-  const fetchMessages = async (chatOverride) => {
-    const activeChat = chatOverride || selectedChatRef.current;
-    if (!activeChat?._id || !user?.token) return;
-
-    try {
-      setLoading(true);
-
-      const { data } = await api.get(`/api/message/${activeChat._id}`, {
-        headers: { Authorization: `Bearer ${user.token}` },
-      });
-
-      if (selectedChatRef.current?._id === activeChat._id) {
-        setMessages(data);
-      }
-    } catch {
-      toast({ title: "Failed to load messages", status: "error" });
-    } finally {
-      setLoading(false);
-    }
-  };
+    markChatSeen(selectedChat._id);
+  }, [markChatSeen, selectedChat]);
 
   useEffect(() => {
     fetchMessages(selectedChat);
-  }, [selectedChat]);
+  }, [fetchMessages, selectedChat]);
 
   const stopTyping = () => {
     if (!socketRef.current || !selectedChatRef.current?._id) return;
@@ -199,34 +261,65 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     }
   };
 
-  const sendMessage = async () => {
-    const content = newMessage.trim();
-    if (!content || !selectedChat?._id || sendingMessage) return;
-
-    const optimisticMessage = {
-      _id: `temp-${Date.now()}`,
-      content,
-      chat: { _id: selectedChat._id },
-      sender: {
-        _id: user._id,
-        name: user.name,
-        pic: user.pic,
-        email: user.email,
-      },
-      createdAt: new Date().toISOString(),
-      optimistic: true,
-    };
-
+  const resetComposer = () => {
     setNewMessage("");
     setShowEmoji(false);
+    setReplyingTo(null);
+    setEditingMessage(null);
+    setPendingAttachments([]);
+  };
+
+  const sendMessage = async () => {
+    const content = newMessage.trim();
+    if ((!content && pendingAttachments.length === 0 && !editingMessage) || !selectedChat?._id || sendingMessage) {
+      return;
+    }
+
     setSendingMessage(true);
-    setMessages((prev) => [...prev, optimisticMessage]);
     stopTyping();
 
     try {
+      if (editingMessage) {
+        const { data } = await api.put(
+          `/api/message/${editingMessage._id}`,
+          { content },
+          { headers: { Authorization: `Bearer ${user.token}` } }
+        );
+
+        replaceMessageById(data);
+        socketRef.current?.emit("message updated", data);
+        resetComposer();
+        return;
+      }
+
+      const optimisticMessage = {
+        _id: `temp-${Date.now()}`,
+        content,
+        attachments: pendingAttachments,
+        chat: { _id: selectedChat._id, users: selectedChat.users, isGroupChat: selectedChat.isGroupChat, chatName: selectedChat.chatName },
+        sender: {
+          _id: user._id,
+          name: user.name,
+          pic: user.pic,
+          email: user.email,
+        },
+        replyTo: replyingTo,
+        readBy: [user],
+        deliveredTo: [],
+        createdAt: new Date().toISOString(),
+        optimistic: true,
+      };
+
+      setMessages((prev) => [...prev, optimisticMessage]);
+
       const { data } = await api.post(
         "/api/message",
-        { content, chatId: selectedChat._id },
+        {
+          content,
+          chatId: selectedChat._id,
+          replyTo: replyingTo?._id || null,
+          attachments: pendingAttachments,
+        },
         { headers: { Authorization: `Bearer ${user.token}` } }
       );
 
@@ -235,12 +328,10 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
       );
 
       socketRef.current?.emit("new message", data);
+      setFetchAgain((prev) => !prev);
+      resetComposer();
     } catch {
-      setMessages((prev) =>
-        prev.filter((item) => item._id !== optimisticMessage._id)
-      );
-      setNewMessage(content);
-      toast({ title: "Message failed", status: "error" });
+      toast({ title: editingMessage ? "Update failed" : "Message failed", status: "error" });
     } finally {
       setSendingMessage(false);
     }
@@ -283,6 +374,81 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     }
   };
 
+  const handleReply = (message) => {
+    setReplyingTo(message);
+    setEditingMessage(null);
+  };
+
+  const handleEdit = (message) => {
+    setEditingMessage(message);
+    setReplyingTo(null);
+    setNewMessage(message.content || "");
+  };
+
+  const handleDeleteMessage = async (message) => {
+    try {
+      const { data } = await api.delete(`/api/message/${message._id}`, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+
+      replaceMessageById(data);
+      socketRef.current?.emit("message deleted", data);
+    } catch {
+      toast({ title: "Unable to delete message", status: "error" });
+    }
+  };
+
+  const handleFileUpload = async (event) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+
+    const formData = new FormData();
+    files.forEach((file) => formData.append("files", file));
+
+    try {
+      setUploadingFiles(true);
+      const { data } = await api.post("/api/message/upload", formData, {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      setPendingAttachments((prev) => [...prev, ...data]);
+    } catch (error) {
+      toast({
+        title: "Upload failed",
+        description:
+          error.response?.data?.message ||
+          "Use images, PDF, Word, Excel, PowerPoint, text, or zip files up to 10MB.",
+        status: "error",
+      });
+    } finally {
+      setUploadingFiles(false);
+      event.target.value = "";
+    }
+  };
+
+  const removePendingAttachment = (attachmentUrl) => {
+    setPendingAttachments((prev) =>
+      prev.filter((attachment) => attachment.url !== attachmentUrl)
+    );
+  };
+
+  const filteredMessages = useMemo(() => {
+    const query = messageSearch.trim().toLowerCase();
+    if (!query) return messages;
+
+    return messages.filter((message) => {
+      const contentMatch = message.content?.toLowerCase().includes(query);
+      const attachmentMatch = message.attachments?.some((attachment) =>
+        attachment.name?.toLowerCase().includes(query)
+      );
+      const senderMatch = message.sender?.name?.toLowerCase().includes(query);
+      return contentMatch || attachmentMatch || senderMatch;
+    });
+  }, [messageSearch, messages]);
+
   useEffect(() => {
     return () => {
       if (typingTimeoutRef.current) {
@@ -319,6 +485,13 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   const otherUser = !selectedChat.isGroupChat
     ? getSenderFull(user, selectedChat.users)
     : null;
+  const isOtherUserOnline = onlineUsers.some(
+    (onlineUserId) => String(onlineUserId) === String(otherUser?._id)
+  );
+
+  const presenceLabel = selectedChat.isGroupChat
+    ? `${selectedChat.users?.length || 0} members`
+    : "Direct conversation";
 
   return (
     <>
@@ -342,11 +515,10 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
 
             {!selectedChat.isGroupChat ? (
               <>
-                <Avatar
-                  size="md"
+                <OnlineAvatar
                   name={otherUser?.name}
                   src={otherUser?.pic}
-                  border="2px solid rgba(201,162,39,0.45)"
+                  isOnline={isOtherUserOnline}
                 />
                 <VStack align="start" spacing={0} minW={0}>
                   <Text
@@ -358,7 +530,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                     {getSender(user, selectedChat.users)}
                   </Text>
                   <Text fontSize="sm" color={subText} noOfLines={1}>
-                    Direct conversation
+                    {presenceLabel}
                   </Text>
                 </VStack>
                 <ProfileModal user={otherUser} />
@@ -375,7 +547,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                     {selectedChat.chatName}
                   </Text>
                   <Text fontSize="sm" color={subText}>
-                    Group conversation
+                    {presenceLabel}
                   </Text>
                 </VStack>
                 <UpdateGroupChatModal
@@ -387,15 +559,30 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
             )}
           </HStack>
 
-          <IconButton
-            icon={<FiTrash2 />}
-            aria-label="Delete chat"
-            color={headingColor}
-            bg="rgba(229, 62, 62, 0.18)"
-            border="1px solid rgba(252, 129, 129, 0.28)"
-            _hover={{ bg: "rgba(229, 62, 62, 0.28)" }}
-            onClick={onOpen}
-          />
+          <HStack>
+            <InputGroup maxW={{ base: "140px", md: "220px" }} display={{ base: "none", md: "flex" }}>
+              <InputLeftElement pointerEvents="none">
+                <SearchIcon color={subText} />
+              </InputLeftElement>
+              <Input
+                placeholder="Search in chat"
+                value={messageSearch}
+                onChange={(e) => setMessageSearch(e.target.value)}
+                bg={softBg}
+                borderColor={borderColor}
+              />
+            </InputGroup>
+
+            <IconButton
+              icon={<FiTrash2 />}
+              aria-label="Delete chat"
+              color={headingColor}
+              bg="rgba(229, 62, 62, 0.18)"
+              border="1px solid rgba(252, 129, 129, 0.28)"
+              _hover={{ bg: "rgba(229, 62, 62, 0.28)" }}
+              onClick={onOpen}
+            />
+          </HStack>
         </HStack>
       </Box>
 
@@ -408,13 +595,33 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
         overflow="hidden"
         position="relative"
       >
+        <Box display={{ base: "block", md: "none" }} mb={3}>
+          <InputGroup>
+            <InputLeftElement pointerEvents="none">
+              <SearchIcon color={subText} />
+            </InputLeftElement>
+            <Input
+              placeholder="Search in chat"
+              value={messageSearch}
+              onChange={(e) => setMessageSearch(e.target.value)}
+              bg={softBg}
+              borderColor={borderColor}
+            />
+          </InputGroup>
+        </Box>
+
         <Box flex="1" overflowY="auto" pr={1}>
           {loading ? (
             <Box display="flex" justifyContent="center" pt={8}>
               <Spinner color="brand.300" size="lg" />
             </Box>
           ) : (
-            <ScrollableChat messages={messages} />
+            <ScrollableChat
+              messages={filteredMessages}
+              onReply={handleReply}
+              onEdit={handleEdit}
+              onDelete={handleDeleteMessage}
+            />
           )}
 
           {isTyping && (
@@ -439,6 +646,88 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
           </Box>
         )}
 
+        {(replyingTo || editingMessage || pendingAttachments.length > 0) && (
+          <Box
+            mt={3}
+            mb={2}
+            bg={composerBg}
+            border={`1px solid ${borderColor}`}
+            borderRadius="18px"
+            p={3}
+          >
+            {replyingTo && (
+              <HStack justify="space-between" align="start">
+                <Box>
+                  <Text fontSize="xs" fontWeight="700" color={headingColor}>
+                    Replying to {replyingTo.sender?.name}
+                  </Text>
+                  <Text fontSize="sm" color={subText} noOfLines={2}>
+                    {replyingTo.content || "Attachment"}
+                  </Text>
+                </Box>
+                <IconButton
+                  size="sm"
+                  icon={<SmallCloseIcon />}
+                  aria-label="Cancel reply"
+                  onClick={() => setReplyingTo(null)}
+                />
+              </HStack>
+            )}
+
+            {editingMessage && (
+              <>
+                {replyingTo && <Divider my={3} />}
+                <HStack justify="space-between" align="start">
+                  <Box>
+                    <Text fontSize="xs" fontWeight="700" color={headingColor}>
+                      Editing message
+                    </Text>
+                    <Text fontSize="sm" color={subText} noOfLines={2}>
+                      {editingMessage.content}
+                    </Text>
+                  </Box>
+                  <IconButton
+                    size="sm"
+                    icon={<SmallCloseIcon />}
+                    aria-label="Cancel edit"
+                    onClick={() => {
+                      setEditingMessage(null);
+                      setNewMessage("");
+                    }}
+                  />
+                </HStack>
+              </>
+            )}
+
+            {!!pendingAttachments.length && (
+              <>
+                {(replyingTo || editingMessage) && <Divider my={3} />}
+                <HStack spacing={2} flexWrap="wrap">
+                  {pendingAttachments.map((attachment) => (
+                    <HStack
+                      key={attachment.url}
+                      spacing={1}
+                      px={3}
+                      py={2}
+                      borderRadius="full"
+                      bg="rgba(201,162,39,0.16)"
+                      border="1px solid rgba(201,162,39,0.26)"
+                    >
+                      <Text fontSize="sm" color={headingColor}>
+                        {attachment.name}
+                      </Text>
+                      <CloseButton
+                        size="sm"
+                        onClick={() => removePendingAttachment(attachment.url)}
+                      />
+                    </HStack>
+                  ))}
+                </HStack>
+              </>
+            )}
+          </Box>
+        )}
+
         <FormControl mt={3}>
           <HStack
             gap={2}
@@ -448,6 +737,24 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
             borderRadius="24px"
             p={2}
           >
+            <input
+              ref={fileInputRef}
+              type="file"
+              hidden
+              multiple
+              accept="image/*,.pdf,.txt,.zip,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+              onChange={handleFileUpload}
+            />
+
+            <IconButton
+              icon={<FiPaperclip />}
+              aria-label="Attach files"
+              bg={softBg}
+              color={headingColor}
+              _hover={{ bg: softHover }}
+              onClick={() => fileInputRef.current?.click()}
+            />
+
             <IconButton
               icon={<FiSmile />}
               aria-label="Emoji picker"
@@ -468,19 +775,42 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                   sendMessage();
                 }
               }}
-              placeholder="Write a message..."
+              placeholder={editingMessage ? "Edit your message..." : "Write a message..."}
               _focusVisible={{
                 boxShadow: "none",
               }}
             />
 
+            {(editingMessage || replyingTo) && (
+              <IconButton
+                bg={softBg}
+                color={headingColor}
+                icon={<FiEdit2 />}
+                aria-label="Clear composer mode"
+                onClick={() => {
+                  setReplyingTo(null);
+                  setEditingMessage(null);
+                }}
+              />
+            )}
+
             <IconButton
               bg="brand.400"
               color="midnight.900"
-              icon={sendingMessage ? <Spinner size="sm" /> : <FiSend />}
+              icon={
+                sendingMessage || uploadingFiles ? (
+                  <Spinner size="sm" />
+                ) : (
+                  <FiSend />
+                )
+              }
               aria-label="Send message"
               _hover={{ bg: "brand.300" }}
-              isDisabled={!newMessage.trim() || sendingMessage}
+              isDisabled={
+                ((!newMessage.trim() && pendingAttachments.length === 0) && !editingMessage) ||
+                sendingMessage ||
+                uploadingFiles
+              }
               onClick={sendMessage}
             />
           </HStack>

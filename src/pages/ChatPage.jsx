@@ -14,7 +14,7 @@ const ChatPage = () => {
   return (
     <Box
       w="100%"
-      h="100vh"
+      minH="100dvh"
       bg={bg}
       display="flex"
       flexDir="column"
@@ -27,6 +27,7 @@ const ChatPage = () => {
       <Box
         flex="1"
         display="flex"
+        flexDir="row"
         p={{ base: 0, md: "6px" }}
         gap="14px"
         overflow="hidden"

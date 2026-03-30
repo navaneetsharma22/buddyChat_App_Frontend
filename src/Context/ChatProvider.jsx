@@ -5,18 +5,18 @@ const ChatContext = createContext();
 
 const ChatProvider = ({ children }) => {
   const [selectedChat, setSelectedChat] = useState();
-  const [user, setUser] = useState();
+  const [user, setUser] = useState(() =>
+    JSON.parse(localStorage.getItem("userInfo"))
+  );
   const [notification, setNotification] = useState([]);
   const [chats, setChats] = useState();
+  const [onlineUsers, setOnlineUsers] = useState([]);
 
   const navigate = useNavigate();
 
   useEffect(() => {
-    const userInfo = JSON.parse(localStorage.getItem("userInfo"));
-    setUser(userInfo);
-
-    if (!userInfo) navigate("/");
-  }, [navigate]);
+    if (!user) navigate("/");
+  }, [navigate, user]);
 
   return (
     <ChatContext.Provider
@@ -29,6 +29,8 @@ const ChatProvider = ({ children }) => {
         setNotification,
         chats,
         setChats,
+        onlineUsers,
+        setOnlineUsers,
       }}
     >
       {children}

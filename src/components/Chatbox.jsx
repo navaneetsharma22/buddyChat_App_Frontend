@@ -13,16 +13,17 @@ const Chatbox = ({ fetchAgain, setFetchAgain }) => {
 
   return (
     <Box
-      display={{ base: selectedChat ? "flex" : "none", md: "flex" }}
+      display={{ base: selectedChat ? "flex" : "none", lg: "flex" }}
       flexDir="column"
       flex="1"
+      w={{ base: "100%", lg: "auto" }}
       bg={bg}
-      borderRadius="28px"
+      borderRadius={{ base: "24px", md: "28px" }}
       border={`1px solid ${borderColor}`}
       overflow="hidden"
       boxShadow="0 20px 60px rgba(0,0,0,0.28)"
       backdropFilter="blur(18px)"
-      h="100%"
+      h={{ base: "calc(100dvh - 116px)", lg: "100%" }}
       minH="0"
     >
       <SingleChat
