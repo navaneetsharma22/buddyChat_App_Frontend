@@ -8,6 +8,7 @@ import {
   InputRightElement,
   Button,
   useToast,
+  useColorModeValue,
 } from "@chakra-ui/react";
 import { useNavigate } from "react-router-dom";
 import api from "../../api/axios"; // ✅ IMPORTANT
@@ -15,6 +16,12 @@ import api from "../../api/axios"; // ✅ IMPORTANT
 function Login() {
   const toast = useToast();
   const navigate = useNavigate();
+  const labelColor = useColorModeValue("midnight.700", "whiteAlpha.900");
+  const ghostButtonBg = useColorModeValue("rgba(9,17,31,0.08)", "whiteAlpha.200");
+  const ghostButtonHover = useColorModeValue("rgba(9,17,31,0.14)", "whiteAlpha.300");
+  const ghostText = useColorModeValue("midnight.900", "white");
+  const outlineBorder = useColorModeValue("rgba(9,17,31,0.16)", "whiteAlpha.300");
+  const outlineHover = useColorModeValue("rgba(9,17,31,0.04)", "whiteAlpha.100");
 
   const [show, setShow] = useState(false);
   const [email, setEmail] = useState("");
@@ -69,7 +76,7 @@ function Login() {
   return (
     <VStack spacing="5px">
       <FormControl id="email" isRequired>
-        <FormLabel>Email Address</FormLabel>
+        <FormLabel color={labelColor}>Email Address</FormLabel>
         <Input
           placeholder="Enter Your Email"
           value={email}
@@ -78,7 +85,7 @@ function Login() {
       </FormControl>
 
       <FormControl id="password" isRequired>
-        <FormLabel>Password</FormLabel>
+        <FormLabel color={labelColor}>Password</FormLabel>
         <InputGroup>
           <Input
             type={show ? "text" : "password"}
@@ -87,7 +94,14 @@ function Login() {
             onChange={(e) => setPassword(e.target.value)}
           />
           <InputRightElement width="4.5rem">
-            <Button h="1.75rem" size="sm" onClick={() => setShow(!show)}>
+            <Button
+              h="1.75rem"
+              size="sm"
+              bg={ghostButtonBg}
+              color={ghostText}
+              _hover={{ bg: ghostButtonHover }}
+              onClick={() => setShow(!show)}
+            >
               {show ? "Hide" : "Show"}
             </Button>
           </InputRightElement>
@@ -95,18 +109,23 @@ function Login() {
       </FormControl>
 
       <Button
-        colorScheme="blue"
+        bg="brand.400"
+        color="midnight.900"
         width="100%"
         mt={4}
         isLoading={loading}
+        _hover={{ bg: "brand.300" }}
         onClick={submitHandler}
       >
         Login
       </Button>
 
       <Button
-        colorScheme="red"
+        variant="outline"
+        borderColor={outlineBorder}
+        color={ghostText}
         width="100%"
+        _hover={{ bg: outlineHover }}
         onClick={() => {
           setEmail("guest@example.com");
           setPassword("123456");

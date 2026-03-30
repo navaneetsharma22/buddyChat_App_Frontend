@@ -1,27 +1,32 @@
-import { Avatar, Box, Text } from "@chakra-ui/react";
+import { Avatar, Box, Text, useColorModeValue } from "@chakra-ui/react";
 import { ChatState } from "../../Context/ChatProvider";
 
 const UserListItem = ({ user, handleFunction }) => {
   // renamed to avoid conflict (even though not used here)
   const { user: loggedUser } = ChatState();
+  const itemBg = useColorModeValue("rgba(9,17,31,0.05)", "whiteAlpha.80");
+  const itemHoverBg = useColorModeValue("rgba(201,162,39,0.85)", "rgba(201,162,39,0.92)");
+  const textColor = useColorModeValue("midnight.900", "white");
+  const borderColor = useColorModeValue("rgba(9,17,31,0.08)", "rgba(255,255,255,0.08)");
 
   return (
     <Box
       onClick={handleFunction}
       cursor="pointer"
-      bg="#E8E8E8"
+      bg={itemBg}
       _hover={{
-        background: "#38B2AC",
-        color: "white",
+        background: itemHoverBg,
+        color: "#09111f",
       }}
       w="100%"
       display="flex"
       alignItems="center"
-      color="black"
+      color={textColor}
       px={3}
-      py={2}
+      py={3}
       mb={2}
-      borderRadius="lg"
+      borderRadius="18px"
+      border={`1px solid ${borderColor}`}
     >
       <Avatar
         mr={2}
@@ -31,8 +36,8 @@ const UserListItem = ({ user, handleFunction }) => {
         src={user.pic}
       />
       <Box>
-        <Text>{user.name}</Text>
-        <Text fontSize="xs">
+        <Text fontWeight="600">{user.name}</Text>
+        <Text fontSize="xs" color="inherit">
           <b>Email : </b>
           {user.email}
         </Text>

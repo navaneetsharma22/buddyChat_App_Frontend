@@ -19,9 +19,12 @@ import {
   useDisclosure,
   useToast,
   Badge,
+  IconButton,
+  useColorMode,
+  useColorModeValue,
 } from "@chakra-ui/react";
 
-import { BellIcon, ChevronDownIcon } from "@chakra-ui/icons";
+import { BellIcon, ChevronDownIcon, MoonIcon, SunIcon } from "@chakra-ui/icons";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 
@@ -50,6 +53,17 @@ function SideDrawer() {
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const navigate = useNavigate();
+  const { colorMode, toggleColorMode } = useColorMode();
+  const headerBg = useColorModeValue("rgba(255,255,255,0.7)", "rgba(7, 13, 24, 0.72)");
+  const headerBorder = useColorModeValue("rgba(9,17,31,0.08)", "rgba(255,255,255,0.1)");
+  const softBg = useColorModeValue("rgba(9,17,31,0.05)", "whiteAlpha.80");
+  const softHover = useColorModeValue("rgba(9,17,31,0.10)", "whiteAlpha.200");
+  const headingColor = useColorModeValue("midnight.900", "white");
+  const menuBg = useColorModeValue("rgba(255, 251, 245, 0.98)", "rgba(7, 13, 24, 0.96)");
+  const menuBorder = useColorModeValue("rgba(9,17,31,0.12)", "whiteAlpha.200");
+  const menuHover = useColorModeValue("rgba(9,17,31,0.05)", "whiteAlpha.100");
+  const drawerBg = useColorModeValue("rgba(255, 251, 245, 0.98)", "rgba(7, 13, 24, 0.96)");
+  const iconColor = useColorModeValue("midnight.900", "white");
 
   const logoutHandler = () => {
     localStorage.removeItem("userInfo");
@@ -131,13 +145,25 @@ function SideDrawer() {
         display="flex"
         justifyContent="space-between"
         alignItems="center"
-        bg="white"
+        position="relative"
+        zIndex="20"
+        bg={headerBg}
         w="100%"
-        p="5px 10px"
-        borderWidth="5px"
+        px={{ base: 4, md: 6 }}
+        py={3}
+        border={`1px solid ${headerBorder}`}
+        borderRadius="24px"
+        boxShadow="0 20px 60px rgba(0,0,0,0.28)"
+        backdropFilter="blur(18px)"
       >
         <Tooltip label="Search Users to chat" hasArrow placement="bottom-end">
-          <Button variant="ghost" onClick={onOpen}>
+          <Button
+            variant="ghost"
+            color={headingColor}
+            bg={softBg}
+            _hover={{ bg: softHover }}
+            onClick={onOpen}
+          >
             <i className="fas fa-search"></i>
             <Text display={{ base: "none", md: "flex" }} px={4}>
               Search User
@@ -145,12 +171,36 @@ function SideDrawer() {
           </Button>
         </Tooltip>
 
-        <Text fontSize="2xl" fontFamily="Work sans">
+        <Text
+          fontSize={{ base: "xl", md: "2xl" }}
+          fontFamily="Bricolage Grotesque"
+          color={headingColor}
+          fontWeight="700"
+          letterSpacing="0.04em"
+        >
           Buddy Chat
         </Text>
 
         <Box display="flex" alignItems="center" gap={2}>
-          <Menu>
+          <IconButton
+            aria-label="Toggle color mode"
+            icon={colorMode === "dark" ? <SunIcon /> : <MoonIcon />}
+            bg={softBg}
+            color={headingColor}
+            _hover={{ bg: softHover }}
+            onClick={toggleColorMode}
+          />
+          <Button
+            display={{ base: "none", lg: "inline-flex" }}
+            bg={softBg}
+            color={headingColor}
+            _hover={{ bg: softHover }}
+            onClick={toggleColorMode}
+          >
+            {colorMode === "dark" ? "Light Mode" : "Dark Mode"}
+          </Button>
+
+          <Menu placement="bottom-end">
             <MenuButton p={1} position="relative">
               {notification.length > 0 && (
                 <Badge
@@ -161,19 +211,28 @@ function SideDrawer() {
                   right="0"
                   fontSize="0.8em"
                   px={2}
+                  boxShadow={colorMode === "dark" ? "0 0 0 4px rgba(7, 13, 24, 0.72)" : "0 0 0 4px rgba(255,255,255,0.7)"}
                 >
                   {notification.length}
                 </Badge>
               )}
-              <BellIcon fontSize="2xl" m={1} />
+              <BellIcon fontSize="2xl" m={1} color={iconColor} />
             </MenuButton>
 
-            <MenuList pl={2}>
+            <MenuList
+              pl={2}
+              bg={menuBg}
+              color={headingColor}
+              borderColor={menuBorder}
+              zIndex="30"
+            >
               {!notification.length && "No New Messages"}
 
               {notification.map((notif) => (
                 <MenuItem
                   key={notif._id}
+                  bg="transparent"
+                  _hover={{ bg: menuHover }}
                   onClick={() => {
                     setSelectedChat(notif.chat);
                     setNotification(notification.filter((n) => n !== notif));
@@ -187,8 +246,14 @@ function SideDrawer() {
             </MenuList>
           </Menu>
 
-          <Menu>
-            <MenuButton as={Button} bg="white" rightIcon={<ChevronDownIcon />}>
+          <Menu placement="bottom-end">
+            <MenuButton
+              as={Button}
+              bg={softBg}
+              color={headingColor}
+              rightIcon={<ChevronDownIcon />}
+              _hover={{ bg: softHover }}
+            >
               <Avatar
                 size="sm"
                 cursor="pointer"
@@ -197,12 +262,25 @@ function SideDrawer() {
               />
             </MenuButton>
 
-            <MenuList>
+            <MenuList
+              bg={menuBg}
+              color={headingColor}
+              borderColor={menuBorder}
+              zIndex="30"
+            >
               <ProfileModal user={user}>
-                <MenuItem>My Profile</MenuItem>
+                <MenuItem bg="transparent" _hover={{ bg: menuHover }}>
+                  My Profile
+                </MenuItem>
               </ProfileModal>
               <MenuDivider />
-              <MenuItem onClick={logoutHandler}>Logout</MenuItem>
+              <MenuItem
+                bg="transparent"
+                _hover={{ bg: menuHover }}
+                onClick={logoutHandler}
+              >
+                Logout
+              </MenuItem>
             </MenuList>
           </Menu>
         </Box>
@@ -210,8 +288,12 @@ function SideDrawer() {
 
       <Drawer placement="left" onClose={onClose} isOpen={isOpen}>
         <DrawerOverlay />
-        <DrawerContent>
-          <DrawerHeader borderBottomWidth="1px">
+        <DrawerContent
+          bg={drawerBg}
+          color={headingColor}
+          borderRight={`1px solid ${headerBorder}`}
+        >
+          <DrawerHeader borderBottomWidth="1px" borderColor={menuBorder}>
             Search Users
           </DrawerHeader>
 
@@ -223,7 +305,14 @@ function SideDrawer() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-              <Button onClick={handleSearch}>Go</Button>
+              <Button
+                bg="brand.400"
+                color="midnight.900"
+                _hover={{ bg: "brand.300" }}
+                onClick={handleSearch}
+              >
+                Go
+              </Button>
             </Box>
 
             {loading ? (

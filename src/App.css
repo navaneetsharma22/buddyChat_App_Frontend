@@ -3,11 +3,26 @@
 .App {
   min-height: 100vh;
   display: flex;
-
-  /* Sky blue with transparency */
-  background-color: rgba(135, 206, 235, 0.35);
-
+  width: 100%;
   background-position: center;
   background-size: cover;
-  color: black;
+  color: white;
+  position: relative;
+}
+
+.App::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(201, 162, 39, 0.14), transparent 24%),
+    radial-gradient(circle at 85% 18%, rgba(255, 255, 255, 0.06), transparent 20%),
+    radial-gradient(circle at 50% 100%, rgba(201, 162, 39, 0.10), transparent 30%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.App > * {
+  position: relative;
+  z-index: 1;
 }

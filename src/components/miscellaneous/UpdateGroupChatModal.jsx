@@ -221,6 +221,10 @@ const UpdateGroupChatModal = ({ fetchMessages, fetchAgain, setFetchAgain }) => {
       <IconButton
         display={{ base: "flex" }}
         icon={<ViewIcon />}
+        aria-label="Manage group chat"
+        bg="whiteAlpha.120"
+        color="white"
+        _hover={{ bg: "whiteAlpha.200" }}
         onClick={onOpen}
       />
 
@@ -229,7 +233,7 @@ const UpdateGroupChatModal = ({ fetchMessages, fetchAgain, setFetchAgain }) => {
         <ModalContent>
           <ModalHeader
             fontSize="35px"
-            fontFamily="Work sans"
+            fontFamily="Bricolage Grotesque"
             display="flex"
             justifyContent="center"
           >
@@ -259,8 +263,10 @@ const UpdateGroupChatModal = ({ fetchMessages, fetchAgain, setFetchAgain }) => {
               />
               <Button
                 ml={1}
-                colorScheme="teal"
+                bg="brand.400"
+                color="midnight.900"
                 isLoading={renameloading}
+                _hover={{ bg: "brand.300" }}
                 onClick={handleRename}
               >
                 Update

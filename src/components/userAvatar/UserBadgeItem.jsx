@@ -6,12 +6,13 @@ const UserBadgeItem = ({ user, handleFunction, admin }) => {
     <Badge
       px={2}
       py={1}
-      borderRadius="lg"
+      borderRadius="full"
       m={1}
       mb={2}
       variant="solid"
       fontSize={12}
-      colorScheme="purple"
+      bg="brand.400"
+      color="midnight.900"
       cursor="pointer"
       onClick={handleFunction}
     >

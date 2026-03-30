@@ -7,6 +7,7 @@ import {
   InputRightElement,
   VStack,
   useToast,
+  useColorModeValue,
 } from "@chakra-ui/react";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -23,6 +24,10 @@ function Signup() {
 
   const toast = useToast();
   const navigate = useNavigate();
+  const labelColor = useColorModeValue("midnight.700", "whiteAlpha.900");
+  const ghostButtonBg = useColorModeValue("rgba(9,17,31,0.08)", "whiteAlpha.200");
+  const ghostButtonHover = useColorModeValue("rgba(9,17,31,0.14)", "whiteAlpha.300");
+  const ghostText = useColorModeValue("midnight.900", "white");
 
   const postDetails = (pics) => {
     setLoading(true);
@@ -126,24 +131,30 @@ function Signup() {
   return (
     <VStack spacing="5px">
       <FormControl id="name" isRequired>
-        <FormLabel>Name</FormLabel>
+        <FormLabel color={labelColor}>Name</FormLabel>
         <Input onChange={(e) => setName(e.target.value)} />
       </FormControl>
 
       <FormControl id="email" isRequired>
-        <FormLabel>Email</FormLabel>
+        <FormLabel color={labelColor}>Email</FormLabel>
         <Input onChange={(e) => setEmail(e.target.value)} />
       </FormControl>
 
       <FormControl id="password" isRequired>
-        <FormLabel>Password</FormLabel>
+        <FormLabel color={labelColor}>Password</FormLabel>
         <InputGroup>
           <Input
             type={show ? "text" : "password"}
             onChange={(e) => setPassword(e.target.value)}
           />
           <InputRightElement width="4.5rem">
-            <Button size="sm" onClick={() => setShow(!show)}>
+            <Button
+              size="sm"
+              bg={ghostButtonBg}
+              color={ghostText}
+              _hover={{ bg: ghostButtonHover }}
+              onClick={() => setShow(!show)}
+            >
               {show ? "Hide" : "Show"}
             </Button>
           </InputRightElement>
@@ -151,7 +162,7 @@ function Signup() {
       </FormControl>
 
       <FormControl id="confirmPassword" isRequired>
-        <FormLabel>Confirm Password</FormLabel>
+        <FormLabel color={labelColor}>Confirm Password</FormLabel>
         <Input
           type="password"
           onChange={(e) => setConfirmPassword(e.target.value)}
@@ -159,20 +170,23 @@ function Signup() {
       </FormControl>
 
       <FormControl>
-        <FormLabel>Upload Picture</FormLabel>
+        <FormLabel color={labelColor}>Upload Picture</FormLabel>
         <Input
           type="file"
           accept="image/*"
+          pt={1}
           onChange={(e) => postDetails(e.target.files[0])}
         />
       </FormControl>
 
       <Button
-        colorScheme="blue"
+        bg="brand.400"
+        color="midnight.900"
         width="100%"
         mt={4}
         onClick={submitHandler}
         isLoading={loading}
+        _hover={{ bg: "brand.300" }}
       >
         Sign Up
       </Button>
