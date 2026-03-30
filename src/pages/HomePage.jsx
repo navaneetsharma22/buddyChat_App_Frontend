@@ -42,7 +42,13 @@ function HomePage() {
   }, [navigate]);
 
   return (
-    <Container maxW="7xl" centerContent py={{ base: 8, md: 14 }}>
+    <Container
+      maxW="7xl"
+      centerContent
+      pt={{ base: 24, md: 14 }}
+      pb={{ base: 8, md: 14 }}
+      px={{ base: 4, md: 6 }}
+    >
       <Box
         position="fixed"
         top={{ base: 4, md: 6 }}
@@ -81,8 +87,9 @@ function HomePage() {
         w="100%"
       >
         <Box
+          order={{ base: 2, lg: 1 }}
           flex="1"
-          p={{ base: 8, md: 10 }}
+          p={{ base: 6, md: 10 }}
           borderRadius="32px"
           bg={panelBg}
           border={`1px solid ${panelBorder}`}
@@ -108,7 +115,7 @@ function HomePage() {
             </Badge>
 
             <Text
-              fontSize={{ base: "4xl", md: "5xl" }}
+              fontSize={{ base: "3xl", md: "5xl" }}
               lineHeight="1"
               fontWeight="700"
               color={headingColor}
@@ -117,10 +124,10 @@ function HomePage() {
             </Text>
 
             <Text
-              fontSize={{ base: "lg", md: "xl" }}
+              fontSize={{ base: "md", md: "xl" }}
               color={bodyText}
               maxW="560px"
-              lineHeight="1.8"
+              lineHeight={{ base: "1.7", md: "1.8" }}
             >
               A polished private messaging workspace for direct chats, group
               conversations, instant notifications, and real-time collaboration.
@@ -165,6 +172,7 @@ function HomePage() {
         </Box>
 
         <Box
+          order={{ base: 1, lg: 2 }}
           display="flex"
           flexDir="column"
           justifyContent="center"

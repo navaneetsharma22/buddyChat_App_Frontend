@@ -47,7 +47,8 @@ const theme = extendTheme({
         color: mode("midnight.900", "white")(props),
       },
       body: {
-        overflow: "hidden",
+        overflowX: "hidden",
+        overflowY: "auto",
       },
       "*::placeholder": {
         color: mode("rgba(9, 17, 31, 0.48)", "rgba(255,255,255,0.45)")(props),
