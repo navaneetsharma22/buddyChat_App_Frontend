@@ -61,6 +61,11 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   const notificationIdsRef = useRef(new Set());
   const fileInputRef = useRef(null);
   const userRef = useRef(null);
+  const updateChatPreviewRef = useRef(null);
+  const markChatSeenRef = useRef(null);
+  const fetchMessagesRef = useRef(null);
+  const setNotificationRef = useRef(null);
+  const setOnlineUsersRef = useRef(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   const {
@@ -85,6 +90,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   const softHover = useColorModeValue("rgba(9,17,31,0.10)", "whiteAlpha.200");
   const emptyBg = useColorModeValue("rgba(9,17,31,0.03)", "rgba(255,255,255,0.04)");
   const outlineBorder = useColorModeValue("rgba(9,17,31,0.16)", "whiteAlpha.300");
+  const selectedChatId = selectedChat?._id;
 
   useEffect(() => {
     selectedChatRef.current = selectedChat;
@@ -194,6 +200,26 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     }
   }, [markChatSeen, toast, user?.token]);
 
+  useEffect(() => {
+    updateChatPreviewRef.current = updateChatPreview;
+  }, [updateChatPreview]);
+
+  useEffect(() => {
+    markChatSeenRef.current = markChatSeen;
+  }, [markChatSeen]);
+
+  useEffect(() => {
+    fetchMessagesRef.current = fetchMessages;
+  }, [fetchMessages]);
+
+  useEffect(() => {
+    setNotificationRef.current = setNotification;
+  }, [setNotification]);
+
+  useEffect(() => {
+    setOnlineUsersRef.current = setOnlineUsers;
+  }, [setOnlineUsers]);
+
   const handleSocketConnect = useCallback(() => {
     const currentUser = userRef.current;
     if (currentUser?._id && socketRef.current) {
@@ -202,34 +228,31 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   }, []);
 
   useEffect(() => {
-    if (!user?._id) return;
+    if (!user?._id) {
+      socketRef.current?.disconnect();
+      return;
+    }
 
     if (!socketInstance) {
       socketInstance = io(ENDPOINT, {
+        autoConnect: false,
         transports: ["websocket", "polling"],
         reconnection: true,
         reconnectionAttempts: Infinity,
         reconnectionDelay: 500,
+        reconnectionDelayMax: 4000,
+        timeout: 10000,
       });
     }
 
     socketRef.current = socketInstance;
 
-    socketInstance.off("connect", handleSocketConnect);
-    socketInstance.on("connect", handleSocketConnect);
-
-    if (socketInstance.connected) {
-      handleSocketConnect();
-    } else {
-      socketInstance.connect();
-    }
-
     const handleTyping = () => setIsTyping(true);
     const handleStopTyping = () => setIsTyping(false);
-    const handleOnlineUsers = (users) => setOnlineUsers(users);
+    const handleOnlineUsers = (users) => setOnlineUsersRef.current?.(users);
     const handleIncomingMessage = (msg) => {
       const activeChat = selectedChatRef.current;
-      updateChatPreview(msg);
+      updateChatPreviewRef.current?.(msg);
 
       if (activeChat && msg.chat?._id === activeChat._id) {
         setMessages((prev) => {
@@ -248,14 +271,14 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
 
           return [...withoutTemp, msg];
         });
-        markChatSeen(msg.chat?._id);
+        markChatSeenRef.current?.(msg.chat?._id);
         return;
       }
 
       if (notificationIdsRef.current.has(msg._id)) return;
 
       notificationIdsRef.current.add(msg._id);
-      setNotification((prev) => [msg, ...prev]);
+      setNotificationRef.current?.((prev) => [msg, ...prev]);
 
       if ("Notification" in window) {
         if (Notification.permission === "default") {
@@ -274,9 +297,17 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     const handleMessageDeleted = (msg) => replaceMessageById(msg);
     const handleMessagesSeen = ({ chatId }) => {
       if (selectedChatRef.current?._id === chatId) {
-        fetchMessages(selectedChatRef.current, { markSeen: false, silent: true });
+        fetchMessagesRef.current?.(selectedChatRef.current, { markSeen: false, silent: true });
       }
     };
+
+    const handleConnected = () => handleSocketConnect();
+    const handleDisconnected = () => setIsTyping(false);
+
+    socketInstance.off("connect", handleConnected);
+    socketInstance.off("disconnect", handleDisconnected);
+    socketInstance.on("connect", handleConnected);
+    socketInstance.on("disconnect", handleDisconnected);
 
     socketInstance.off("typing", handleTyping);
     socketInstance.off("stop typing", handleStopTyping);
@@ -294,8 +325,15 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     socketInstance.on("messages seen", handleMessagesSeen);
     socketInstance.on("online users", handleOnlineUsers);
 
+    if (!socketInstance.connected) {
+      socketInstance.connect();
+    } else {
+      handleSocketConnect();
+    }
+
     return () => {
-      socketInstance.off("connect", handleSocketConnect);
+      socketInstance.off("connect", handleConnected);
+      socketInstance.off("disconnect", handleDisconnected);
       socketInstance.off("typing", handleTyping);
       socketInstance.off("stop typing", handleStopTyping);
       socketInstance.off("message recieved", handleIncomingMessage);
@@ -304,17 +342,18 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
       socketInstance.off("messages seen", handleMessagesSeen);
       socketInstance.off("online users", handleOnlineUsers);
     };
-  }, [fetchMessages, handleSocketConnect, markChatSeen, setFetchAgain, setNotification, setOnlineUsers, updateChatPreview, user?._id]);
+  }, [handleSocketConnect, user?._id]);
 
   useEffect(() => {
-    if (!selectedChat?._id || !socketRef.current) return;
-    socketRef.current.emit("join chat", selectedChat._id);
-    markChatSeen(selectedChat._id);
-  }, [markChatSeen, selectedChat]);
+    if (!selectedChatId || !socketRef.current) return;
+    socketRef.current.emit("join chat", selectedChatId);
+    markChatSeen(selectedChatId);
+  }, [markChatSeen, selectedChatId]);
 
   useEffect(() => {
-    fetchMessages(selectedChat);
-  }, [fetchMessages, selectedChat]);
+    if (!selectedChatId) return;
+    fetchMessages();
+  }, [fetchMessages, selectedChatId]);
 
   const stopTyping = () => {
     if (!socketRef.current || !selectedChatRef.current?._id) return;
