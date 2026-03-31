@@ -170,11 +170,11 @@ const MyChats = ({ fetchAgain }) => {
                   onClick={() => setSelectedChat(chat)}
                   cursor="pointer"
                   bg={
-                    selectedChat === chat
+                    selectedChat?._id === chat._id
                       ? "linear-gradient(135deg, rgba(201,162,39,0.98), rgba(221,195,122,0.92))"
                       : cardBg
                   }
-                  color={selectedChat === chat ? "midnight.900" : "white"}
+                  color={selectedChat?._id === chat._id ? "midnight.900" : "white"}
                   px={3}
                   py={3}
                   borderRadius="20px"
@@ -183,7 +183,7 @@ const MyChats = ({ fetchAgain }) => {
                   _hover={{
                     transform: "translateY(-1px)",
                     bg:
-                      selectedChat === chat
+                      selectedChat?._id === chat._id
                         ? "linear-gradient(135deg, rgba(201,162,39,0.98), rgba(221,195,122,0.92))"
                         : cardHover,
                   }}
@@ -203,7 +203,10 @@ const MyChats = ({ fetchAgain }) => {
                       )}
 
                       <Box>
-                        <Text fontWeight="600" color={selectedChat === chat ? "midnight.900" : headingColor}>
+                        <Text
+                          fontWeight="600"
+                          color={selectedChat?._id === chat._id ? "midnight.900" : headingColor}
+                        >
                           {!chat.isGroupChat
                             ? getSender(loggedUser, chat.users)
                             : chat.chatName}
@@ -212,7 +215,7 @@ const MyChats = ({ fetchAgain }) => {
                         {chat.latestMessage && (
                           <Text
                             fontSize="xs"
-                            color={selectedChat === chat ? "midnight.700" : subText}
+                            color={selectedChat?._id === chat._id ? "midnight.700" : subText}
                           >
                             <b>{chat.latestMessage.sender.name} : </b>
                             {chat.latestMessage.content

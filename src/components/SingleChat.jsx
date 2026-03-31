@@ -60,6 +60,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   const selectedChatRef = useRef(null);
   const notificationIdsRef = useRef(new Set());
   const fileInputRef = useRef(null);
+  const userRef = useRef(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   const {
@@ -68,6 +69,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     user,
     notification,
     setNotification,
+    setChats,
     onlineUsers,
     setOnlineUsers,
   } = ChatState();
@@ -89,6 +91,10 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   }, [selectedChat]);
 
   useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  useEffect(() => {
     notificationIdsRef.current = new Set(notification.map((item) => item._id));
   }, [notification]);
 
@@ -97,6 +103,42 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
       prev.map((item) => (item._id === message._id ? message : item))
     );
   };
+
+  const updateChatPreview = useCallback((message) => {
+    const chatId = message?.chat?._id;
+    if (!chatId) return;
+
+    setChats((prev) => {
+      if (!Array.isArray(prev) || prev.length === 0) return prev;
+
+      const existingIndex = prev.findIndex((chat) => String(chat._id) === String(chatId));
+      const baseChat = existingIndex >= 0 ? prev[existingIndex] : message.chat;
+      if (!baseChat) return prev;
+
+      const updatedChat = {
+        ...baseChat,
+        latestMessage: message,
+        updatedAt: new Date().toISOString(),
+      };
+
+      if (existingIndex === 0) {
+        const existingTop = prev[0];
+        if (existingTop?.latestMessage?._id === message._id) return prev;
+        return [updatedChat, ...prev.slice(1)];
+      }
+
+      if (existingIndex > 0) {
+        return [updatedChat, ...prev.filter((_, idx) => idx !== existingIndex)];
+      }
+
+      return [updatedChat, ...prev];
+    });
+
+    setSelectedChat((prev) => {
+      if (String(prev?._id) !== String(chatId)) return prev;
+      return { ...prev, latestMessage: message };
+    });
+  }, [setChats, setSelectedChat]);
 
   const markChatSeen = useCallback(async (chatId) => {
     if (!chatId || !user?.token) return;
@@ -122,7 +164,8 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     }
   }, [setNotification, user]);
 
-  const fetchMessages = useCallback(async (chatOverride) => {
+  const fetchMessages = useCallback(async (chatOverride, options = {}) => {
+    const { markSeen: shouldMarkSeen = true } = options;
     const activeChat = chatOverride || selectedChatRef.current;
     if (!activeChat?._id || !user?.token) return;
 
@@ -137,7 +180,9 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
         setMessages(data);
       }
 
-      await markChatSeen(activeChat._id);
+      if (shouldMarkSeen) {
+        await markChatSeen(activeChat._id);
+      }
     } catch {
       toast({ title: "Failed to load messages", status: "error" });
     } finally {
@@ -145,26 +190,42 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     }
   }, [markChatSeen, toast, user?.token]);
 
+  const handleSocketConnect = useCallback(() => {
+    const currentUser = userRef.current;
+    if (currentUser?._id && socketRef.current) {
+      socketRef.current.emit("setup", currentUser);
+    }
+  }, []);
+
   useEffect(() => {
     if (!user?._id) return;
 
     if (!socketInstance) {
       socketInstance = io(ENDPOINT, {
-        transports: ["websocket"],
+        transports: ["websocket", "polling"],
         reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 300,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 500,
       });
     }
 
     socketRef.current = socketInstance;
-    socketInstance.emit("setup", user);
+
+    socketInstance.off("connect", handleSocketConnect);
+    socketInstance.on("connect", handleSocketConnect);
+
+    if (socketInstance.connected) {
+      handleSocketConnect();
+    } else {
+      socketInstance.connect();
+    }
 
     const handleTyping = () => setIsTyping(true);
     const handleStopTyping = () => setIsTyping(false);
     const handleOnlineUsers = (users) => setOnlineUsers(users);
     const handleIncomingMessage = (msg) => {
       const activeChat = selectedChatRef.current;
+      updateChatPreview(msg);
 
       if (activeChat && msg.chat?._id === activeChat._id) {
         setMessages((prev) => {
@@ -191,7 +252,6 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
 
       notificationIdsRef.current.add(msg._id);
       setNotification((prev) => [msg, ...prev]);
-      setFetchAgain((prev) => !prev);
 
       if ("Notification" in window) {
         if (Notification.permission === "default") {
@@ -210,7 +270,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     const handleMessageDeleted = (msg) => replaceMessageById(msg);
     const handleMessagesSeen = ({ chatId }) => {
       if (selectedChatRef.current?._id === chatId) {
-        fetchMessages(selectedChatRef.current);
+        fetchMessages(selectedChatRef.current, { markSeen: false });
       }
     };
 
@@ -231,6 +291,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     socketInstance.on("online users", handleOnlineUsers);
 
     return () => {
+      socketInstance.off("connect", handleSocketConnect);
       socketInstance.off("typing", handleTyping);
       socketInstance.off("stop typing", handleStopTyping);
       socketInstance.off("message recieved", handleIncomingMessage);
@@ -239,7 +300,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
       socketInstance.off("messages seen", handleMessagesSeen);
       socketInstance.off("online users", handleOnlineUsers);
     };
-  }, [fetchMessages, markChatSeen, setFetchAgain, setNotification, setOnlineUsers, user]);
+  }, [fetchMessages, handleSocketConnect, markChatSeen, setFetchAgain, setNotification, setOnlineUsers, updateChatPreview, user?._id]);
 
   useEffect(() => {
     if (!selectedChat?._id || !socketRef.current) return;
@@ -327,8 +388,30 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
         prev.map((item) => (item._id === optimisticMessage._id ? data : item))
       );
 
-      socketRef.current?.emit("new message", data);
-      setFetchAgain((prev) => !prev);
+      updateChatPreview(data);
+
+      if (socketRef.current && !socketRef.current.connected) {
+        socketRef.current.connect();
+      }
+
+      try {
+        await new Promise((resolve, reject) => {
+          if (!socketRef.current) {
+            resolve();
+            return;
+          }
+
+          socketRef.current.timeout(5000).emit("new message", data, (err) => {
+            if (err) {
+              reject(err);
+              return;
+            }
+            resolve();
+          });
+        });
+      } catch {
+        void 0;
+      }
       resetComposer();
     } catch {
       toast({ title: editingMessage ? "Update failed" : "Message failed", status: "error" });
