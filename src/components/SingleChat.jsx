@@ -165,12 +165,14 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   }, [setNotification, user]);
 
   const fetchMessages = useCallback(async (chatOverride, options = {}) => {
-    const { markSeen: shouldMarkSeen = true } = options;
+    const { markSeen: shouldMarkSeen = true, silent = false } = options;
     const activeChat = chatOverride || selectedChatRef.current;
     if (!activeChat?._id || !user?.token) return;
 
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
 
       const { data } = await api.get(`/api/message/${activeChat._id}`, {
         headers: { Authorization: `Bearer ${user.token}` },
@@ -186,7 +188,9 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     } catch {
       toast({ title: "Failed to load messages", status: "error" });
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, [markChatSeen, toast, user?.token]);
 
@@ -270,7 +274,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     const handleMessageDeleted = (msg) => replaceMessageById(msg);
     const handleMessagesSeen = ({ chatId }) => {
       if (selectedChatRef.current?._id === chatId) {
-        fetchMessages(selectedChatRef.current, { markSeen: false });
+        fetchMessages(selectedChatRef.current, { markSeen: false, silent: true });
       }
     };
 
